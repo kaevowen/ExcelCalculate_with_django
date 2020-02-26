@@ -1,13 +1,24 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 import pandas as pd
+from datetime import datetime
+from .models import *
+
 
 # Create your views here.
 def calculate(req):
     file = req.FILES['fileInput']
-    print("사용자가 등록한 파일의 이름 : ", file)
+    # print("사용자가 등록한 파일의 이름 : ", file)
+
+    # save file in server
+    origin_file_name = file.name
+    user_name = req.session['user_name']
+    now_HMS = datetime.today().strftime('%H%M%S')
+    file_upload_name = now_HMS + '_' + user_name + '_' + origin_file_name
+    file.name = file_upload_name
+    document = Document(user_upload_file=file)
+    document.save()
     df = pd.read_excel(file, sheet_name='Sheet1', header=0)
-    #print(df.head(5))
     grade_dic = {}
     total_row_num = len(df.index)
 
@@ -61,3 +72,4 @@ def calculate(req):
     req.session['grade_calc_dic'] = grade_calc_dic_to_session
     req.session['email_domain_dic'] = email_domain_dic
     return redirect("/result")
+

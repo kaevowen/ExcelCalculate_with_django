@@ -1,8 +1,10 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, HttpResponse
 from .models import *
 from sendEmail.views import *
 
 import random
+import hashlib
+
 
 def index(req):
     if 'user_name' in req.session.keys():
@@ -16,20 +18,25 @@ def signup(req):
 
 
 def join(req):
-    print(req)
     name = req.POST['signupName']
     email = req.POST['signupEmail']
     pw = req.POST['signupPW']
-    user = User(user_name=name, user_email=email, user_pw=pw)
+    encoded_pw = pw.encode()
+    encrypted_pw = hashlib.sha256(encoded_pw).hexdigest()
+    user = User(user_name=name, user_email=email, user_pw=encrypted_pw)
     user.save()
-    code = random.randint(1000,9999)
+    code = random.randint(1000, 9999)
     response = redirect('main_verifyCode')
-    response
+    response.set_cookie('code', code)
+    response.set_cookie('user_id', user.id)
+
     send_result = send(email, code)
+    print(send_result)
     if send_result:
         return response
     else:
-        return HttpResponse("이메일 발송에 실패했습니다.")
+        content = {'message': '이메일 발송에 실패했습니다.'}
+        return render(req, 'main/error.html', content)
 
 
 def signin(req):
@@ -42,14 +49,19 @@ def login(req):
     try:
         user = User.objects.get(user_email=loginEmail)
     except:
-        return redirect('main_loginFail')
+        content = {'message': '아이디 또는 비밀번호가 틀립니다.'}
+        return render(req, 'main/error.html', content)
 
-    if user.user_pw == loginPW:
+    encoded_loginPW = loginPW.encode()
+    encrypted_loginPW = hashlib.sha256(encoded_loginPW).hexdigest()
+    if user.user_pw == encrypted_loginPW:
         req.session['user_name'] = user.user_name
         req.session['user_email'] = user.user_email
         return redirect('main_index')
     else:
-        return redirect('main_loginFail')
+        content = {'message': '아이디 또는 비밀번호가 틀립니다.'}
+        return render(req, 'main/error.html', content)
+
 
 
 def loginFail(req):
